@@ -70,3 +70,57 @@
            (distance-intersect-to-pole
              "R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51"
              "U98,R91,D20,R16,D67,R40,U7,R15,U6,R7")))))
+
+; part 2
+
+(with-test
+  (defn offset
+    "determine offset from direction and distance"
+    [dir dist]
+    (condp = dir
+      \U [0 dist]
+      \D [0 (- dist)]
+      \R [dist 0]
+      \L [(- dist) 0]))
+  (defn apply-move-2
+    "apply a move m to the current position and returns the next position"
+    [cp m]
+    (let [dir (first m)
+          dist (Integer/parseInt (s/join (rest m)))
+          of (offset dir dist)
+          np (vec (map + cp of))]
+      np))
+  (defn segment-contains? [segment point]
+    (let [[[x1 y1] [x2 y2]] segment
+          [x y] point]
+      (and (or (<= x1 x x2) (<= x2 x x1))
+           (or (<= y1 y y2) (<= y2 y y1)))))
+  (defn steps-to-intersect
+    "compute the number of steps needed to reach the intersection"
+    ([cp wire i]
+     (loop [cp cp              ; current position
+            s 0                ; number of steps
+            ms (s/split wire #",")]  ; moves
+       (if-let [m (first ms)]
+         (let [np (apply-move-2 cp m)]
+           (if (segment-contains? [cp np] i)
+             (+ s (apply + (map #(Math/abs (- %1 %2)) cp i)))
+             (recur np (+ s (apply + (map #(Math/abs (- %1 %2)) cp np))) (rest ms))))
+         (throw "intersection not found!"))))
+    ([cp wire1 wire2 i]
+     (+ (steps-to-intersect cp wire1 i) (steps-to-intersect cp wire2 i))))
+  (defn fewest-steps-to-intersect [wire1 wire2]
+    (let [cp  [0 0]
+          ws1 (wire-segments cp wire1)
+          ws2 (wire-segments cp wire2)
+          ps  (intersections ws1 ws2)
+          ds  (map #(steps-to-intersect cp wire1 wire2 %) ps)
+          sorted-ds (filter #(> % 0) (sort ds))]
+      (first sorted-ds)))
+  (testing "fewest number of steps needed to reach an intersection"
+    (is (= 610 (fewest-steps-to-intersect
+                 "R75,D30,R83,U83,L12,D49,R71,U7,L72"
+                 "U62,R66,U55,R34,D71,R55,D58,R83")))
+    (is (= 410 (fewest-steps-to-intersect
+                 "R98,U47,R26,D63,R33,U87,L62,D20,R33,U53,R51"
+                 "U98,R91,D20,R16,D67,R40,U7,R15,U6,R7")))))
